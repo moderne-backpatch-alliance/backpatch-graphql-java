@@ -1,0 +1,21 @@
+schema: osera-patch-evidence/0.1.0
+producer: moderne
+release: 18.7.1-backpatch-00001
+baseline: v18.7+backpatch.baseline
+fixes:
+  - cve: CVE-2024-40094
+    upstream_fix_url: https://github.com/advisories/GHSA-h9mq-f6q5-6c8m
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2024-40094
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-graphql-java/compare/d8ca948~1...939c8fa
+    basis: adapted
+    artifacts:
+      - com.graphql-java:graphql-java
+    note: New in this release; ported onto 18.7; fixed at 18.7.1-backpatch-00001 (backpatch-graphql-java@d8ca948..939c8fa).
+tests:
+  commit: 939c8fa20f8092cc131b1e7d0bac7dcda789da54
+  command: gradlew test --continue (JDK 8)
+  runtime: openjdk version 1.8.0_382, Gradle wrapper
+  report: graphql-java-18.7.1-backpatch-00001-tests.zip
+  report_sha256: 9b077db6313a7b282ee6d97e376bf14c6c4aacc24b6968d7d96286a269156e59
+  result: pass
+  note: 2384 tests at the patch commit, 3 of them skipped by the suite, 0 failed, 0 errors.
