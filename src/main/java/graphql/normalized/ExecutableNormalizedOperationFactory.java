@@ -173,8 +173,60 @@ public class ExecutableNormalizedOperationFactory {
     private static final ConditionalNodes conditionalNodes = new ConditionalNodes();
     private static final ValuesResolver valuesResolver = new ValuesResolver();
 
-    private ExecutableNormalizedOperationFactory() {
+    @Deprecated
+    public ExecutableNormalizedOperationFactory() {
 
+    }
+
+    @Deprecated
+    public CollectNFResult collectFromMergedField(FieldCollectorNormalizedQueryParams parameters,
+                                                  ExecutableNormalizedField executableNormalizedField,
+                                                  ImmutableList<FieldAndAstParent> mergedField,
+                                                  int level) {
+        ExecutableNormalizedOperationFactoryImpl impl = implFor(parameters, null);
+        CollectNFResult result = impl.collectFromMergedField(executableNormalizedField, mergedField, level);
+        impl.addPossibleMergersTo(parameters);
+        return result;
+    }
+
+    @Deprecated
+    public CollectNFResult collectFromOperation(FieldCollectorNormalizedQueryParams parameters,
+                                                OperationDefinition operationDefinition,
+                                                GraphQLObjectType rootType) {
+        ExecutableNormalizedOperationFactoryImpl impl = implFor(parameters, operationDefinition);
+        CollectNFResult result = impl.collectFromOperation(rootType);
+        impl.addPossibleMergersTo(parameters);
+        return result;
+    }
+
+    private static ExecutableNormalizedOperationFactoryImpl implFor(FieldCollectorNormalizedQueryParams parameters, OperationDefinition operationDefinition) {
+        return new ExecutableNormalizedOperationFactoryImpl(
+                parameters.getGraphQLSchema(),
+                operationDefinition,
+                parameters.getFragmentsByName(),
+                CoercedVariables.of(parameters.getCoercedVariableValues()),
+                parameters.getNormalizedVariableValues(),
+                Options.defaultOptions());
+    }
+
+    public static class CollectNFResult {
+        private final Collection<ExecutableNormalizedField> children;
+        private final ImmutableListMultimap<ExecutableNormalizedField, FieldAndAstParent> normalizedFieldToAstFields;
+
+        public CollectNFResult(Collection<ExecutableNormalizedField> children, ImmutableListMultimap<ExecutableNormalizedField, FieldAndAstParent> normalizedFieldToAstFields) {
+            this.children = children;
+            this.normalizedFieldToAstFields = normalizedFieldToAstFields;
+        }
+    }
+
+    private static class FieldAndAstParent {
+        final Field field;
+        final GraphQLCompositeType astParentType;
+
+        private FieldAndAstParent(Field field, GraphQLCompositeType astParentType) {
+            this.field = field;
+            this.astParentType = astParentType;
+        }
     }
 
     /**
@@ -445,6 +497,12 @@ public class ExecutableNormalizedOperationFactory {
                     fieldCount,
                     maxDepthSeen
             );
+        }
+
+        private void addPossibleMergersTo(FieldCollectorNormalizedQueryParams parameters) {
+            for (PossibleMerger possibleMerger : possibleMergerList) {
+                parameters.addPossibleMergers(possibleMerger.parent, possibleMerger.resultKey);
+            }
         }
 
         private void captureMergedField(ExecutableNormalizedField enf, MergedField mergedFld) {
@@ -773,26 +831,6 @@ public class ExecutableNormalizedOperationFactory {
                 this.field = field;
                 this.objectTypes = objectTypes;
                 this.astTypeCondition = astTypeCondition;
-            }
-        }
-
-        public static class CollectNFResult {
-            private final Collection<ExecutableNormalizedField> children;
-            private final ImmutableListMultimap<ExecutableNormalizedField, FieldAndAstParent> normalizedFieldToAstFields;
-
-            public CollectNFResult(Collection<ExecutableNormalizedField> children, ImmutableListMultimap<ExecutableNormalizedField, FieldAndAstParent> normalizedFieldToAstFields) {
-                this.children = children;
-                this.normalizedFieldToAstFields = normalizedFieldToAstFields;
-            }
-        }
-
-        private static class FieldAndAstParent {
-            final Field field;
-            final GraphQLCompositeType astParentType;
-
-            private FieldAndAstParent(Field field, GraphQLCompositeType astParentType) {
-                this.field = field;
-                this.astParentType = astParentType;
             }
         }
 
