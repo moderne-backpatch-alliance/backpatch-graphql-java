@@ -1,6 +1,7 @@
 package graphql.normalized;
 
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import graphql.Assert;
 import graphql.PublicApi;
 import graphql.execution.MergedField;
@@ -53,6 +54,40 @@ public class ExecutableNormalizedOperation {
         this.coordinatesToNormalizedFields = coordinatesToNormalizedFields;
         this.operationFieldCount = operationFieldCount;
         this.operationDepth = operationDepth;
+    }
+
+    public ExecutableNormalizedOperation(
+            OperationDefinition.Operation operation,
+            String operationName,
+            List<ExecutableNormalizedField> topLevelFields,
+            ImmutableListMultimap<Field, ExecutableNormalizedField> fieldToNormalizedField,
+            Map<ExecutableNormalizedField, MergedField> normalizedFieldToMergedField,
+            ImmutableListMultimap<FieldCoordinates, ExecutableNormalizedField> coordinatesToNormalizedFields) {
+        this(operation,
+                operationName,
+                topLevelFields,
+                fieldToNormalizedField,
+                normalizedFieldToMergedField,
+                ImmutableMap.of(),
+                coordinatesToNormalizedFields,
+                countFields(topLevelFields),
+                depthOf(topLevelFields));
+    }
+
+    private static int countFields(List<ExecutableNormalizedField> fields) {
+        int count = fields.size();
+        for (ExecutableNormalizedField field : fields) {
+            count += countFields(field.getChildren());
+        }
+        return count;
+    }
+
+    private static int depthOf(List<ExecutableNormalizedField> fields) {
+        int depth = 0;
+        for (ExecutableNormalizedField field : fields) {
+            depth = Math.max(depth, 1 + depthOf(field.getChildren()));
+        }
+        return depth;
     }
 
     /**
