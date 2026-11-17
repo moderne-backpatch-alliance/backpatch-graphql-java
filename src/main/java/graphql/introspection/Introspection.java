@@ -3,8 +3,11 @@ package graphql.introspection;
 
 import com.google.common.collect.ImmutableSet;
 import graphql.Assert;
+import graphql.ExecutionResult;
 import graphql.Internal;
 import graphql.PublicApi;
+import graphql.execution.ExecutionContext;
+import graphql.execution.MergedSelectionSet;
 import graphql.execution.ValuesResolver;
 import graphql.language.AstPrinter;
 import graphql.schema.FieldCoordinates;
@@ -38,6 +41,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -59,6 +63,28 @@ import static graphql.schema.visibility.DefaultGraphqlFieldVisibility.DEFAULT_FI
 
 @PublicApi
 public class Introspection {
+
+    /**
+     * This will look in to the field selection set and see if there are introspection fields,
+     * and if there is, it checks that they are asked for in good faith, and if not it will return an errored {@link ExecutionResult}
+     * that can be returned to the user.
+     *
+     * @param mergedSelectionSet the fields to be executed
+     * @param executionContext   the execution context in play
+     *
+     * @return an optional error result
+     */
+    public static Optional<ExecutionResult> isIntrospectionSensible(MergedSelectionSet mergedSelectionSet, ExecutionContext executionContext) {
+        for (String key : mergedSelectionSet.getKeys()) {
+            String fieldName = mergedSelectionSet.getSubField(key).getName();
+            if (fieldName.equals(SchemaMetaFieldDef.getName())
+                    || fieldName.equals(TypeMetaFieldDef.getName())) {
+                return GoodFaithIntrospection.checkIntrospection(executionContext);
+            }
+        }
+        return Optional.empty();
+    }
+
     private static final Map<FieldCoordinates, IntrospectionDataFetcher<?>> introspectionDataFetchers = new LinkedHashMap<>();
 
     private static void register(GraphQLFieldsContainer parentType, String fieldName, IntrospectionDataFetcher<?> introspectionDataFetcher) {
