@@ -3,13 +3,12 @@ package graphql.introspection
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.TestUtil
-import graphql.execution.AbortExecutionException
 import graphql.execution.CoercedVariables
 import graphql.language.Document
 import graphql.normalized.ExecutableNormalizedOperationFactory
 import spock.lang.Specification
 
-class GoodFaithIntrospectionInstrumentationTest extends Specification {
+class GoodFaithIntrospectionTest extends Specification {
 
     def graphql = TestUtil.graphQL("type Query { normalField : String }").build()
 
@@ -170,7 +169,7 @@ class GoodFaithIntrospectionInstrumentationTest extends Specification {
         def query = createDeepQuery(depth)
         def then = System.currentTimeMillis()
         ExecutionResult er = graphql.execute(query)
-        def ms = System.currentTimeMillis()-then
+        def ms = System.currentTimeMillis() - then
 
         then:
         !er.errors.isEmpty()
@@ -180,13 +179,57 @@ class GoodFaithIntrospectionInstrumentationTest extends Specification {
 
         where:
         depth | targetError
-        2     | GoodFaithIntrospection.BadFaithIntrospectionError.class
-        10    | AbortExecutionException.class
-        15    | AbortExecutionException.class
-        20    | AbortExecutionException.class
-        25    | AbortExecutionException.class
-        50    | AbortExecutionException.class
-        100    | AbortExecutionException.class
+        2   | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        10  | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        15  | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        20  | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        25  | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        50  | GoodFaithIntrospection.BadFaithIntrospectionError.class
+        100 | GoodFaithIntrospection.BadFaithIntrospectionError.class
+    }
+
+    def "wide introspection via fragment spread is detected as bad faith"() {
+        given:
+        // non cycle-forming fields (aliases of 'name') so the tooManyFields cap does not fire;
+        // __schema is reached only through the fragment spread
+        def sb = new StringBuilder()
+        sb.append("query { ...F } fragment F on Query { __schema { types { ")
+        for (int i = 0; i < 510; i++) {
+            sb.append("a${i}: name ")
+        }
+        sb.append("} } }")
+
+        when:
+        ExecutionResult er = graphql.execute(sb.toString())
+
+        then:
+        !er.errors.isEmpty()
+        er.errors[0] instanceof GoodFaithIntrospection.BadFaithIntrospectionError
+        er.errors[0].message.contains("too big")
+    }
+
+    def "deep introspection via fragment spread is detected as bad faith"() {
+        given:
+        // ofType is not a cycle-forming field, so depth is only bounded by the good faith limit;
+        // __schema is reached only through the fragment spread
+        def sb = new StringBuilder()
+        sb.append("query { ...F } fragment F on Query { __schema { types { ")
+        for (int i = 0; i < 25; i++) {
+            sb.append("ofType { ")
+        }
+        sb.append("name ")
+        for (int i = 0; i < 25; i++) {
+            sb.append("} ")
+        }
+        sb.append("} } }")
+
+        when:
+        ExecutionResult er = graphql.execute(sb.toString())
+
+        then:
+        !er.errors.isEmpty()
+        er.errors[0] instanceof GoodFaithIntrospection.BadFaithIntrospectionError
+        er.errors[0].message.contains("too big")
     }
 
     String createDeepQuery(int depth = 25) {
